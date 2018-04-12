@@ -1,4 +1,4 @@
-bitch#include "msp.h"
+#include "msp.h"
 
 #define NGreen 0
 #define NYellow 1
