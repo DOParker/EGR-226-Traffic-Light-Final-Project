@@ -129,7 +129,9 @@ void TimerA2_Output_Init (void)
 /***************************State Functions*************************************/
 void NorthGreen (void)
 {
-    if (flag)
+    uint8_t previous_Emer_Flag = 0;         //declare local variables
+    
+    if (flag && Emer_Vehicle_Flag == 0)
     {
         state = NYellow;                //increment state
         TIMER32_2->LOAD = 9000000;      //3 sec count for NYellow state
@@ -146,9 +148,16 @@ void NorthGreen (void)
         if(Emer_Vehicle_Flag == 1)
             previous_state = state;
 
-        state = Emer_Vehicle;           //send to next state to maintain order
-        Emer_Vehicle_Flag++;            //make sure previous state does not get set again
-        P4->OUT &= ~0b01011110;         //make sure LEDs are in proper configuration
+        if(Emer_Vehicle_Flag != previous_Emer_Flag)
+        {
+            TIIMER32_2->LOAD  = 3000000;                //load timer with 1 sec if interrupt happend again
+            previous_Emer_Flag = Emer_Vehicle_Flag;     //reset previous to current
+        }
+        P4->OUT &= ~0b01011110;                         //make sure LEDs are in proper configuration
+    }
+    if (flag && Emer_Vehicle_Flag)
+    {
+        
     }
 }
 
@@ -329,7 +338,7 @@ void main(void)
         switch (state)
         {
             case NGreen:
-                NorthGreen ();                  //end to the north green function
+                NorthGreen ();                  //send to the north green function
                 break;
 
             case NYellow:
@@ -355,8 +364,6 @@ void main(void)
             case Npedestrian_stop:
                 NorthPedestrianStop ();
                break;
-            case Emer_Vehicle:
-
         }
         printf ("%d\n", Emer_Vehicle_Flag);
     }
