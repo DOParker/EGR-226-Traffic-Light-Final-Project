@@ -1,0 +1,67 @@
+#include <stdio.h>
+#include "driverlib.h"
+
+unsigned int notesHz[] = {10, 1, 3};
+
+unsigned short interval[] = {3, 12, 5};
+
+void Sound_Play(unsigned freq_in_hz, unsigned duration_seconds)
+ {
+     uint32_t i = 0;
+     //uint32_t load = 0;
+     float time_period_seconds = (1.0/freq_in_hz)*1000.0;
+     //load = time_period_ms * 0.333;
+     for(i=0;i<duration_seconds;i++){
+         P3->OUT |= BIT7;
+         systick_delay(time_period_seconds);
+         P3->OUT &= ~BIT7;
+         systick_delay(time_period_seconds);
+     }
+ }
+int main(void){
+    
+    uint32_t i=0,j=0,k=0; // index
+    uint8_t value = 0;
+    systick_init();
+    WDT_A->CTL = WDT_A_CTL_PW | WDT_A_CTL_HOLD;     // stop watchdog timer
+
+    P3->DIR |= BIT7; //change to buzzer pin
+    P3->OUT &= ~BIT7;
+
+    P3->DIR &= ~BIT6;
+    P3->REN |= BIT6;
+    P3->OUT |= BIT6;
+    while(1)
+    {
+            if ( (P3IN & BIT6) == 0 ) //change to pin of push button
+            {
+                for(k = 0; k<25; k++)
+                {
+                  Sound_Play(8*notes[k], 1000*interval[k]);
+                  pause(6);
+                }
+             pause(100);
+            }
+    }
+}
+
+void systick_init(){
+    
+    SysTick->CTRL = 0;  // disable systick
+    SysTick->LOAD = 0x00ffffff;
+    SysTick->VAL = 0; // clear this register
+    SysTick->CTRL = 0x00000005;
+}
+void systick_delay(float seconds){
+    
+    SysTick->LOAD = (30000 * seconds) - 1 ;
+    SysTick->VAL = 0;
+    while(!(SysTick->CTRL & (1<<16)));
+}
+
+void pause(unsigned short i){
+    
+    unsigned short j;
+    for (j = 0; j < i; j++)
+        systick_delay(10);
+}
