@@ -70,7 +70,7 @@ void pause(unsigned short i){
 uint8_t DebounceSwitch1( )         // Switch on Port P1.1
  {
     static uint16_t State = 0;
-    State = (State<<1) | ((P1IN & BIT1)>>1) | 0xf800;
+    State = (State<<1) | ((P3IN & BIT2)>>1) | 0xf800;
       SysTick_delay(5);  
 
 if(State == 0xfc00)
