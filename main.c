@@ -150,7 +150,7 @@ void NorthGreen (void)
 
         if(Emer_Vehicle_Flag != previous_Emer_Flag)
         {
-            TIIMER32_2->LOAD  = 1500000;                //load timer with 0.5 sec if interrupt happend again
+            TIMER32_2->LOAD  = 1500000;                //load timer with 0.5 sec if interrupt happend again
             previous_Emer_Flag = Emer_Vehicle_Flag;     //reset previous to current
         }
         P4->OUT &= ~0b01011110;                         //make sure LEDs are in proper configuration
