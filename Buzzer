@@ -65,3 +65,17 @@ void pause(unsigned short i){
     for (j = 0; j < i; j++)
         systick_delay(10);
 }
+
+/*
+uint8_t DebounceSwitch1( )         // Switch on Port P1.1
+ {
+    static uint16_t State = 0;
+    State = (State<<1) | ((P1IN & BIT1)>>1) | 0xf800;
+      SysTick_delay(5);  
+
+if(State == 0xfc00)
+      return 1;
+
+    return 0;
+ }
+*/
