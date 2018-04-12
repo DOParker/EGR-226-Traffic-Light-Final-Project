@@ -79,6 +79,20 @@ void T32_INT2_IRQHandler (void)         //Interrupt Handler for Timer 2.
     flag++;                             //increment flag
 }
 
+/*
+uint8_t DebounceSwitch1( )         // Switch on Port P1.1
+ {
+    static uint16_t State = 0;
+    State = (State<<1) | ((P3IN & BIT3)>>1) | 0xf800;
+      SysTick_delay(5);  
+
+if(State == 0xfc00)
+      return 1;
+
+    return 0;
+ }
+*/
+
 void PORT3_IRQHandler(void)             // Port1 ISR
 {
     if ( P3->IFG & BIT2 )               // If P1.1 had an interrupt (going from high to low
