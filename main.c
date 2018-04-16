@@ -14,8 +14,10 @@ void Traffic_Light_pin_init (void);     //initialize signal LEDs
 void Pedestrian_North_init (void);      //initialize Pedestrian crossing LEDs
 void IR_Sense_Init (void);              //initialize the IR sensor
 void TimerA2_Output_Init (void);        //initialize PWM for IR output
-void T32_INT2_IRQHandler (void);        //Interrupt Handler for Timer 2.
+void TIMER_A3_init (void);              //initialize timer A3 for interrupt
+void T32_INT2_IRQHandler (void);        //Interrupt Handler for Timer32_2.
 void TA0_N_IRQHandler(void);            //Interrupt Handler for Timer A0
+void TA3_0_IRQHandler(void);            //INterrupt handler for timerA3
 void PORT1_IRQHandler(void);            //Interrupt Handler for Port 1
 
 void NorthGreen (void);                 //function of state north green
@@ -27,8 +29,8 @@ void NorthPedestrian (void);            //function of state north pedestrian
 void NorthPedestrianStop (void);        //function of state north pedestrain stop
 
 
-uint8_t flag = 0, North_pedestrian = 0,Transit_Vehicle_Flag = 0, Emer_Vehicle_Flag = 0;     //initialize variables
-uint8_t previous_state = 0, state = NGreen, previous_flag = 0, nRedFlag = 0;                //initialize variables
+uint8_t flag = 0, North_pedestrian = 0,Transit_Vehicle_Flag = 0, Emer_Vehicle_Flag = 0, LCD_Update_flag = 0;            //initialize variables
+uint8_t previous_state = 0, state = NGreen, previous_flag = 0, nRedFlag = 0, LCD_Update_Flag = 0, new_state_flag = 0;   //initialize variables
 int currentedge, lastedge =0, period;
 
 /*********FUNCTIONS*************/
@@ -70,6 +72,30 @@ void IR_Sense_Init (void)                       //P2.5 IR input (2.4 output)
             TIMER_A_CCTLN_SCS;                  // Synchronous capture
 
     TIMER_A0->CCR[0] = 65535;                   //set period for IR sensor as max
+}
+
+void TimerA2_Output_Init (void)
+{
+     P6->DIR |= BIT6;                               // Setup P6.6 as an TimerA0 controlled output, SEL = 01
+     P6->SEL0 |= BIT6;
+     P6->SEL1 &= ~(BIT6);
+
+     TIMER_A2->CCR[0]  = 37500;                     // PWM Period (# cycles of clock)
+     TIMER_A2->CTL = 0b0000001011010100;            // SMCLK, Divide by 8, Count Up, Clear to start
+     TIMER_A2->CCTL[3] = 0b0000000011100100;        // CCR1 reset/set mode 7, without interrupt.
+     TIMER_A2->CCR[3] = 18750;                      // Duty cycle to 50% to start (1/2 of CCR0).
+}
+
+void TIMER_A3_init (void)
+{
+  TIMER_A3->CCR[0] = 46875;                     //count for 1 sec
+  TIMER_A3->CTL = TIMER_A_CTL_SSEL__SMCLK |     // SMCLK
+                  TIMER_A_CTL_MC__CONTINUOUS |  // Continuous Mode   MC_2
+                  TIMER_A_CTL_ID_3;             //divide source by 8
+
+  TIMER_A3->EX0 = 0b111;                        //divide by 8 again
+
+  TIMER_A3->CCTL[0] = TIMER_A_CCTLN_CCIE;       // TACCR0 interrupt enabled
 
 }
 
@@ -100,31 +126,22 @@ void TA0_N_IRQHandler(void)
             Transit_Vehicle_Flag = 0;
         }
 
-        else if ( ( 25446 < period ) && ( period < 28055 ) )    // within 5% of 14Hz period
+        if ( ( 25446 < period ) && ( period < 28055 ) )    // within 5% of 14Hz period
         {
             Emer_Vehicle_Flag = 0;                              //set flag for which frequency detected
             Transit_Vehicle_Flag++;
-        }
-        else
-        {
-            ;
         }
 
         TIMER_A0->CCTL[2] &= ~(TIMER_A_CCTLN_CCIFG);            // Clear the interrupt flag
     }
 }
 
-void TimerA2_Output_Init (void)
+void TA3_0_IRQHandler(void)
 {
-     P6->DIR |= BIT6;                               // Setup P6.6 as an TimerA0 controlled output, SEL = 01
-     P6->SEL0 |= BIT6;
-     P6->SEL1 &= ~(BIT6);
-
-     TIMER_A2->CCR[0]  = 37500;                     // PWM Period (# cycles of clock)
-     TIMER_A2->CTL = 0b0000001011010100;            // SMCLK, Divide by 8, Count Up, Clear to start
-     TIMER_A2->CCTL[3] = 0b0000000011100100;        // CCR1 reset/set mode 7, without interrupt.
-     TIMER_A2->CCR[3] = 18750;                      // Duty cycle to 50% to start (1/2 of CCR0).
+    LCD_Update_flag++;                              //increment flag
+    TIMER_A3->CCTL[0] &= ~ TIMER_A_CCTLN_CCIFG;     // Clear the flag in CCTL[0]
 }
+
 /***************************State Functions*************************************/
 void NorthGreen (void)
 {
@@ -133,6 +150,7 @@ void NorthGreen (void)
     if (flag && Emer_Vehicle_Flag == 0)             //if (1,0)
     {
         state = NYellow;                //increment state
+        new_state_flag = 1;             //flag for new state set
         TIMER32_2->LOAD = 9000000;      //3 sec count for NYellow state
         flag = 0;                       //reset flag
     }
@@ -174,6 +192,7 @@ void NorthYellow (void)
     if (flag)                           //if (1,0) OR (1,1)
     {
         state = BothRed;                //increment state
+        new_state_flag = 1;             //flag for new state set
         TIMER32_2->LOAD = 3000000;      //1 sec count for BothRed state
         flag = 0;                       //reset flag
         previous_state = NYellow;       //store current state for return in BothRed state
@@ -189,6 +208,7 @@ void NorthYellow (void)
         previous_state = state;
 
         state = NGreen;                 //send to next state to maintain order
+        new_state_flag = 1;             //flag for new state set
         Emer_Vehicle_Flag++;            //make sure previous state does not get set again
 
         P4->OUT &= ~0b01011110;         //make sure LEDs are in proper configuration
@@ -201,32 +221,37 @@ void NorthYellow (void)
 
 void NorthRed (void)
 {
-    if (flag)
+    if (flag == 1 && North_pedestrian == 0)
     {
         state = EYellow;                //increment state
+        new_state_flag = 1;             //flag for new state set
         TIMER32_2->LOAD = 9000000;      //3 sec count for EYellow
         flag = 0;                       //reset the flag
-        nRedFlag = 0;
     }
     if(flag == 0 && Emer_Vehicle_Flag)
     {
         if(Emer_Vehicle_Flag)
             previous_state = state;
 
-        state = EYellow;                //send state to appropriate state to maintain order
-        Emer_Vehicle_Flag++;            //make sure previous state does not get set again
-        TIMER32_2->LOAD = 9000000;     //timer set for 3 sec
+        state = EYellow;                        //send state to appropriate state to maintain order
+        new_state_flag = 1;                     //flag for new state set
+        Emer_Vehicle_Flag++;                    //make sure previous state does not get set again
+        TIMER32_2->LOAD = 9000000;              //timer set for 3 sec
     }
-    if(flag == 0 && North_pedestrian == 0 && Emer_Vehicle_Flag == 0)
+    if(flag == 0 && Emer_Vehicle_Flag == 0)
     {
         P4->OUT |= BIT2;                //North red ON
         P4->OUT |= BIT3;                //East green ON
         P4->OUT &= ~0b01110011;         //All else OFF
-        nRedFlag = 1;
+
+        if (North_pedestrian == 0)
+            nRedFlag = 1;
     }
-    if (flag == 0 && North_pedestrian == 1 && nRedFlag == 0 && Emer_Vehicle_Flag == 0)
+
+    if (flag == 1 && North_pedestrian == 1 && nRedFlag == 0 && Emer_Vehicle_Flag == 0)
     {
         state = Npedestrian;
+        new_state_flag = 1;             //flag for new state set
         TIMER32_2->LOAD = 45000000;
     }
 }
@@ -236,6 +261,7 @@ void EastYellow (void)
     if (flag && Emer_Vehicle_Flag == 0)
     {
         state = BothRed;                //increment state
+        new_state_flag = 1;             //flag for new state set
         TIMER32_2->LOAD = 3000000;      //1 sec count for BothRed state
         flag = 0;                       //reset flag
         previous_state = EYellow;       //store current state for return in BothRed state
@@ -245,6 +271,7 @@ void EastYellow (void)
         P4->OUT |= BIT2;                //North red ON
         P4->OUT |= BIT4;                //East yellow ON
         P4->OUT &= ~0b01101011;         //All else OFF
+        nRedFlag = 0;
     }
     if(Emer_Vehicle_Flag && flag == 0)
     {
@@ -259,6 +286,7 @@ void EastYellow (void)
     if(Emer_Vehicle_Flag && flag)
     {
         state = BothRed;                    //send to correct state for order
+        new_state_flag = 1;                 //flag for new state set
         TIMER32_2->LOAD = 3000000;          //load timer with 1 sec for state both red
         flag = 0;                           //reset flag
     }
@@ -268,17 +296,21 @@ void NorthEastRed (void)
 {
     if (flag && Emer_Vehicle_Flag == 0)
     {
-        state = (previous_state +1) % 4;        //increment state to next NRed/NGreen
-        if (previous_state == NYellow)          //is next state NRed
-            TIMER32_2->LOAD = 24000000;         //8 sec wait for NRed
-        else if(previous_state == EYellow)      //is next state NGreen
-            TIMER32_2->LOAD = 36000000;         //12 sec wait for NGreen
+        state = (previous_state +1) % 4;                                //increment state to next NRed/NGreen
+        if (previous_state == NYellow && North_pedestrian == 0)         //is next state NRed
+            TIMER32_2->LOAD = 24000000;                                 //8 sec wait for NRed
+        if(previous_state == EYellow)                                   //is next state NGreen
+            TIMER32_2->LOAD = 36000000;                                 //12 sec wait for NGreen
+        if(previous_state == NYellow && North_pedestrian == 1)
+            TIMER32_2->LOAD == 15000000;                                //5 sec wait for NRed before pedestrain walk
+        new_state_flag = 1;                                             //flag for new state set
         flag = 0;
         previous_state = 0;
     }
     else if(flag && Emer_Vehicle_Flag)
     {
         state = NGreen;                         //send to correct state for order
+        new_state_flag = 1;                     //flag for new state set
         flag = 0;                               //reset flag
         TIMER32_2->LOAD = 90000000;             //3 sec wait
     }
@@ -302,6 +334,7 @@ void NorthPedestrian (void)
     else
     {
         state = Npedestrian_stop;
+        new_state_flag = 1;                 //flag for new state set
         TIMER32_2->LOAD = 750000;
         flag = 0;
         North_pedestrian = 0;
@@ -323,6 +356,7 @@ void NorthPedestrianStop (void)
         P4->OUT |= BIT7;                     //turn pedestrian warning ON
         TIMER32_2->LOAD = 9000000;           //3 sec count for EYellow
         state = EYellow;
+        new_state_flag = 1;                 //flag for new state set
     }
 }
 
@@ -340,6 +374,7 @@ void main(void)
     IR_Sense_Init ();                           //initialize the IR sensor
     Pedestrian_North_init ();                   //initialize the button for crosswalk
     TimerA2_Output_Init ();                     //initialize the IR sensor with PWM
+    TIMER_A3_init ();                           //initialize timer A3 for LCD interrupt
 
     TIMER32_2->CONTROL = 0b11100011;            //Sets timer 2 for Enabled,
                                                 //Periodic
@@ -347,11 +382,19 @@ void main(void)
                                                 //No Prescaler, 32 bit mode
                                                 //One Shot Mode.  See 589 / reference manual
 
+    TIMER32_1->CONTROL = 0b11100011;            //Sets timer 1 for Enabled,
+                                                //Periodic
+                                                //With No Interrupts
+                                                //No Prescaler, 32 bit mode
+                                                //One Shot Mode.  See 589 / reference manual
+
     NVIC->ISER[1] = 1 << ((PORT3_IRQn) & 31);   // Enable Port 3 interrupt on the NVIC
     NVIC->ISER[0] = 1 << ((TA0_N_IRQn) & 31);   // Enable Timer A0 interrupt on the NVIC
+    NVIC_EnableIRQ( T32_INT1_IRQn );            //Enable Timer32_1 interrupt.
     NVIC_EnableIRQ( T32_INT2_IRQn );            //Enable Timer32_2 interrupt.
-    __enable_interrupts ();                    //Enable all interrupts for MSP432
+    __enable_interrupts ();                     //Enable all interrupts for MSP432
 
+    TIMER32_1->LOAD = 3000000;                  //one second count for timer 1
     TIMER32_2->LOAD = 36000000;                 //12 sec count for NGreen state/initial state
     P4->OUT |= BIT7;
 
@@ -387,6 +430,16 @@ void main(void)
                 NorthPedestrianStop ();
                break;
         }
-        //printf ("%d\n", Emer_Vehicle_Flag);
+
+        if (LCD_Update_Flag == 1)
+        {
+            //if state changed
+                //print new state for north then 0 seconds in state
+                //print new state for east then 0 seconds in state
+                //reset new_state_flag
+                //USE SWITCH CASE FOR WHICH STATE TO PRINT
+            //if state not changed
+                //send cursor to position and print update flag
+        }
     }
 }
