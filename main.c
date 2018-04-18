@@ -138,7 +138,7 @@ void PORT3_IRQHandler(void)             // Port1 ISR
 /*void PORT3_IRQHandler(void){
     if (P3->IFG & BIT2)
         if(!(P3->IES |= BIT7)){ //change to pin of buzzer 
-            T32LOAD1-> 9000000;
+            T32LOAD1 = 9000000;
             North_pedestrian = 1;
         }
         else{
@@ -495,6 +495,8 @@ void main(void)
 
         if (LCD_Update_Flag == 1)
         {
+            if (new_state_flag == 1){
+                
             //if state changed
                 //print new state for north then 0 seconds in state
                 //print new state for east then 0 seconds in state
