@@ -83,6 +83,11 @@ void Buzzer_Init (void)
     P3->OUT &= ~BIT7;
 }
 
+void LCD_displayInfo (int state){
+    //if statements for different states with for loops to increment amount of seconds for a specific state
+}
+
+
 void Sound_Play(unsigned freq_in_hz, unsigned duration_ms)
  {
      uint32_t i = 0;
@@ -466,30 +471,37 @@ void main(void)
         {
             case NGreen:
                 NorthGreen ();                  //send to the north green function
+                //LCD_displayInfo(NGreen);
                 break;
 
             case NYellow:
                 NorthYellow ();
+                //LCD_displayInfo(NYellow);
                 break;
 
             case NRed:
                 NorthRed ();
+                //LCD_displayInfo(NRed);
                 break;
 
             case EYellow:
                EastYellow ();
+               //LCD_displayInfo(EYellow);
                break;
 
             case BothRed:
                 NorthEastRed ();
+                //LCD_displayInfo(BothRed);
                 break;
 
             case Npedestrian:
                 NorthPedestrian ();
+                //LCD_displayInfo(Npedestrian);
                 break;
 
             case Npedestrian_stop:
                 NorthPedestrianStop ();
+                //LCD_displayInfo(Npedestrian_stop);
                break;
         }
 
