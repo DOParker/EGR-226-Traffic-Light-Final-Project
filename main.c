@@ -10,6 +10,9 @@
 #define Npedestrian_stop 6
 #define Emer_Vehicle 7
 
+unsigned int notesHz[] = {10, 1, 3};
+unsigned short interval[] = {3, 12, 5};
+
 void Traffic_Light_pin_init (void);     //initialize signal LEDs
 void Pedestrian_North_init (void);      //initialize Pedestrian crossing LEDs
 void IR_Sense_Init (void);              //initialize the IR sensor
@@ -74,6 +77,26 @@ void IR_Sense_Init (void)                       //P2.5 IR input (2.4 output)
     TIMER_A0->CCR[0] = 65535;                   //set period for IR sensor as max
 }
 
+void Buzzer_Init (void)
+{  
+    P3->DIR |= BIT7; //change to buzzer pin
+    P3->OUT &= ~BIT7;
+}
+
+void Sound_Play(unsigned freq_in_hz, unsigned duration_ms)
+ {
+     uint32_t i = 0;
+     //uint32_t load = 0;
+     float time_period_seconds = (1.0/freq_in_hz)*1000.0;
+     //load = time_period_ms * 0.333;
+     for(i=0;i<duration_ms;i++){
+         P3->OUT |= BIT7;
+         Systick_ms_delay(time_period_ms);
+         P3->OUT &= ~BIT7;
+         Systick_ms_delay(time_period_ms);
+     }
+ }
+
 void TimerA2_Output_Init (void)
 {
      P6->DIR |= BIT6;                               // Setup P6.6 as an TimerA0 controlled output, SEL = 01
@@ -112,6 +135,22 @@ void PORT3_IRQHandler(void)             // Port1 ISR
     P3->IFG &= ~BIT2;                   // Reset the interrupt flag
 }
 
+/*void PORT3_IRQHandler(void){
+    if (P3->IFG & BIT2)
+        if(!(P3->IES = 0x01)){
+            T32LOAD1-> 9000000;
+            North_pedestrian = 1;
+        }
+        else{
+            if(T32VALUE1 == 0)
+                for(k = 0; k<25; k++)
+                {
+                  Sound_Play(8*notes[k], 100*interval[k]);
+                }
+        }
+    P3->IES ^= BIT7;
+}*/
+            
 void TA0_N_IRQHandler(void)
 {
     if (TIMER_A0->CCTL[2] & BIT0)                           // T0.4 was the cause.  This is setup as a capture.  Successful capture means blink LED1.
@@ -141,6 +180,29 @@ void TA3_0_IRQHandler(void)
     LCD_Update_flag++;                              //increment flag
     TIMER_A3->CCTL[0] &= ~ TIMER_A_CCTLN_CCIFG;     // Clear the flag in CCTL[0]
 }
+
+void Systick_init (void)
+{
+    SysTick->CTRL = 0;              // disable SysTick During step
+    SysTick->LOAD = 0x00FFFFFF;     // max reload value
+    SysTick->VAL = 0;               // any write to current clears it
+    SysTick->CTRL = 0x00000005;     // enable systic, 3MHz, No Interrupts
+}
+
+void Systick_ms_delay (uint32_t delay)
+{
+    SysTick -> LOAD = ((delay * 3000) - 1);                     //delay for 1 msecond per delay value
+    SysTick -> VAL  = 0;                                        // any write to CVR clears it
+    while ( (SysTick -> CTRL  &  0x00010000) == 0);             // wait for flag to be SET
+}
+
+void Systick_us_delay (uint32_t delay)
+{
+    SysTick -> LOAD = ((delay * 3) - 1);                     //delay for 1 usecond per delay value
+    SysTick -> VAL  = 0;                                     // any write to CVR clears it
+    while ( (SysTick -> CTRL  &  0x00010000) == 0);          // wait for flag to be SET
+}
+
 
 /***************************State Functions*************************************/
 void NorthGreen (void)
