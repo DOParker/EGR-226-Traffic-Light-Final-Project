@@ -90,7 +90,7 @@ void Sound_Play(unsigned freq_in_hz, unsigned duration_ms)
      float time_period_seconds = (1.0/freq_in_hz)*1000.0;
      //load = time_period_ms * 0.333;
      for(i=0;i<duration_ms;i++){
-         P3->OUT |= BIT7;
+         P3->OUT |= BIT7; //change to pin of buzzer
          Systick_ms_delay(time_period_ms);
          P3->OUT &= ~BIT7;
          Systick_ms_delay(time_period_ms);
@@ -137,7 +137,7 @@ void PORT3_IRQHandler(void)             // Port1 ISR
 
 /*void PORT3_IRQHandler(void){
     if (P3->IFG & BIT2)
-        if(!(P3->IES = 0x01)){
+        if(!(P3->IES |= BIT7)){ //change to pin of buzzer 
             T32LOAD1-> 9000000;
             North_pedestrian = 1;
         }
@@ -148,7 +148,7 @@ void PORT3_IRQHandler(void)             // Port1 ISR
                   Sound_Play(8*notes[k], 100*interval[k]);
                 }
         }
-    P3->IES ^= BIT7;
+    P3->IES ^= BIT7; //change to pin of buzzer
 }*/
             
 void TA0_N_IRQHandler(void)
